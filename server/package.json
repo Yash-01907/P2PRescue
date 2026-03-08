@@ -1,0 +1,15 @@
+{
+  "name": "p2prescue-server",
+  "version": "1.0.0",
+  "description": "P2P Rescue Backend API — receives SOS packets from the field",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "ws": "^8.16.0"
+  }
+}

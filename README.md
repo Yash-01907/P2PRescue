@@ -1,97 +1,104 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 🚨 P2P Rescue — Disaster-Resilient Communication System
 
-# Getting Started
+> **When cell towers fall, the mesh rises.**
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+P2P Rescue is a peer-to-peer emergency communication system that works **without internet, cell signal, or infrastructure** — using only the phones in your pocket.
 
-## Step 1: Start Metro
+## 🧠 The Problem
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+During disasters (earthquakes, floods, hurricanes), cellular infrastructure is the **first thing to fail**. Victims are left unable to call for help, and rescue teams are blind to who needs saving.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## 💡 The Solution
 
-```sh
-# Using npm
-npm start
+P2P Rescue creates an **ad-hoc mesh network** using Bluetooth and Wi-Fi Direct. When you press the SOS button:
 
-# OR using Yarn
-yarn start
+1. 📡 Your phone broadcasts an SOS packet over BLE mesh
+2. 🔄 Nearby phones automatically relay it forward (store-and-forward)
+3. 📍 Your GPS coordinates travel with the SOS — even without cell signal
+4. 🌐 When any phone in the chain reaches internet, all queued SOS packets upload to the Rescue Dashboard
+5. 🗺️ Command centers see SOS locations on a live map in real-time
+
+## 🏗 Architecture
+
+```
+Hexagonal Architecture + Delay-Tolerant Networking (DTN)
+
+  Domain Core  <-->  Use Cases  <-->  Adapters
+  (Entities)        (Business       (Bridgefy,
+  SOSPacket          Logic)          GPS, Store)
 ```
 
-## Step 2: Build and run your app
+### Key Technical Decisions
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+| Decision   | Choice                   | Why                             |
+| ---------- | ------------------------ | ------------------------------- |
+| Framework  | React Native             | Cross-platform (Android + iOS)  |
+| Mesh SDK   | Bridgefy                 | Battle-tested in real disasters |
+| Background | Foreground Service       | Survives Android Doze mode      |
+| GPS        | Cached Location Strategy | Works without A-GPS data        |
+| Encryption | AES-256                  | End-to-end privacy              |
+| Pattern    | Hexagonal + DTN          | Testable, protocol-agnostic     |
 
-### Android
+## 🧪 Test Results
 
-```sh
-# Using npm
-npm run android
+```
+Test Suites: 9 passed, 9 total
+Tests:       63 passed, 63 total
 
-# OR using Yarn
-yarn android
+ - Domain: SOSPacket, Location, GeoCoordinate
+ - Use Cases: CreateSOS, RelayPacket
+ - Adapters: AsyncStorage, Crypto, Integration
+ - Integration: 3-device relay chain, dedup, TTL, encryption
 ```
 
-### iOS
+## 🚀 Quick Start
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+```bash
+# Install dependencies
+cd P2PRescue && npm install
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+# Run tests
+npx jest --verbose
 
-```sh
-bundle install
+# Start the rescue server
+cd server && npm install && npm start
+
+# Open the dashboard
+open dashboard/index.html
+
+# Run the mobile app
+npx react-native run-android
 ```
 
-Then, and every time you update your native dependencies, run:
+## 📡 How the Mesh Works
 
-```sh
-bundle exec pod install
+```
+Victim A         Person B         Person C        Gateway
+(No signal)      (No signal)      (No signal)     (Has signal)
+    |                 |                 |               |
+    |-- BLE broadcast-|                 |               |
+    |   [SOS + GPS]   |-- relay hop 1 ->|               |
+    |                 |                 |-- relay h2 -->|
+    |                 |                 |               |-- HTTP POST
+    |                 |                 |               |   to Dashboard
+    |                 |                 |               |
+    |                 |        Dashboard shows SOS pin  |
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## 🔑 Judge-Ready Answers
 
-```sh
-# Using npm
-npm run ios
+### "How does GPS work without network?"
 
-# OR using Yarn
-yarn ios
-```
+GPS is a **passive radio receiver** — it listens to satellite signals, not cell towers. Cold-start takes 30s but we cache coordinates every 5 minutes. Even a 30-minute-old cached location narrows rescue area to 500 meters.
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### "What's the actual range?"
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+BLE: 100m open field. Wi-Fi Direct: 200m. But range doesn't matter because of **store-and-forward**: People physically carry packets between isolated clusters.
 
-## Step 3: Modify your app
+### "What if there aren't enough phones?"
 
-Now that you have successfully run the app, let's make changes!
+The system is **delay-tolerant**. Packets have a 72-hour TTL and survive 15 hops. Even if only 1 phone reaches signal hours later, every SOS it carried gets uploaded.
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## 📄 License
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+MIT — Built for saving lives, not for profit.
