@@ -133,7 +133,7 @@ const SOSScreen = ({ container }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#000000',
     padding: 20,
   },
   statusBar: {

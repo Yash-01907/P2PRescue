@@ -1,110 +1,195 @@
 // src/screens/MapScreen.js
-// Shows SOS locations on a simple map view (placeholder for map library)
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+} from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { diContainer } from '../di/container';
 
-const MapScreen = ({ container }) => {
+const MapScreen = () => {
   const [packets, setPackets] = useState([]);
+  const [region, setRegion] = useState({
+    latitude: 28.6139,
+    longitude: 77.209,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
+  });
+
+  const loadPackets = async () => {
+    try {
+      const storagePort = diContainer.resolve('StoragePort');
+      const allPackets = await storagePort.getAllPackets();
+      setPackets(
+        allPackets.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        ),
+      );
+
+      // Auto-center on most recent valid location
+      for (const p of allPackets) {
+        if (p.location && p.location.source !== 'NONE' && p.location.latitude) {
+          setRegion({
+            latitude: p.location.latitude,
+            longitude: p.location.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load map data', e);
+    }
+  };
 
   useEffect(() => {
-    const loadPackets = async () => {
-      if (container?.storageAdapter) {
-        const all = await container.storageAdapter.getBufferedPackets();
-        setPackets(all.filter(p => p.location && p.location.source !== 'NONE'));
-      }
-    };
     loadPackets();
-    const interval = setInterval(loadPackets, 5000);
+    const interval = setInterval(loadPackets, 5000); // refresh every 5s
     return () => clearInterval(interval);
-  }, [container]);
+  }, []);
+
+  const renderSOSItem = ({ item }) => {
+    const time = new Date(item.createdAt).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const locStr =
+      item.location.source !== 'NONE' && item.location.latitude
+        ? `${item.location.latitude.toFixed(
+            4,
+          )}, ${item.location.longitude.toFixed(4)}`
+        : 'Unknown Loc';
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardId}>🆘 {item.packetId.slice(0, 8)}...</Text>
+          <Text style={styles.cardTime}>{time}</Text>
+        </View>
+        <Text style={styles.cardMsg} numberOfLines={1}>
+          {item.payload.message || 'No specific msg'}
+        </Text>
+        <Text style={styles.cardMeta} numberOfLines={1}>
+          {locStr} • Hops: {item.hopCount}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🗺️ SOS Map</Text>
-      <Text style={styles.subtitle}>
-        {packets.length} SOS signals with location data
-      </Text>
-
-      {/* Map Placeholder — integrate react-native-maps in production */}
-      <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapPlaceholderText}>
-          🌍 Map View{'\n'}
-          (Add react-native-maps for production)
-        </Text>
+      {/* Map View Area */}
+      <View style={styles.mapContainer}>
+        <MapView provider={PROVIDER_DEFAULT} style={styles.map} region={region}>
+          {packets.map(p => {
+            if (
+              !p.location ||
+              p.location.source === 'NONE' ||
+              !p.location.latitude
+            )
+              return null;
+            return (
+              <Marker
+                key={p.packetId}
+                coordinate={{
+                  latitude: p.location.latitude,
+                  longitude: p.location.longitude,
+                }}
+                title="🆘 SOS Beacon"
+                description={
+                  p.payload.message || `ID: ${p.packetId.slice(0, 8)}`
+                }
+                pinColor="red"
+              />
+            );
+          })}
+        </MapView>
       </View>
 
-      {/* SOS Location List */}
-      <FlatList
-        data={packets}
-        keyExtractor={item => item.packetId}
-        renderItem={({ item }) => (
-          <View style={styles.packetCard}>
-            <View style={styles.packetHeader}>
-              <Text style={styles.packetId}>
-                📍 {item.packetId.slice(0, 8)}...
-              </Text>
-              <Text style={styles.packetHops}>Hops: {item.hopCount}</Text>
-            </View>
-            <Text style={styles.packetLocation}>
-              {item.location.latitude.toFixed(4)}°,{' '}
-              {item.location.longitude.toFixed(4)}° ({item.location.source})
-            </Text>
-            <Text style={styles.packetMessage}>
-              {item.payload?.message || 'No message'}
-            </Text>
-            <Text style={styles.packetTime}>
-              {new Date(item.createdAt).toLocaleString()}
-            </Text>
-          </View>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            No SOS signals with location data yet.
-          </Text>
-        }
-      />
+      {/* List Area */}
+      <View style={styles.listContainer}>
+        <Text style={styles.header}>Received SOS Beacons</Text>
+        <FlatList
+          data={packets}
+          keyExtractor={item => item.packetId}
+          renderItem={renderSOSItem}
+          contentContainerStyle={{ padding: 16 }}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No SOS signals received yet.</Text>
+          }
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a2e', padding: 20 },
-  title: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
-  subtitle: { color: '#a8dadc', fontSize: 14, marginBottom: 16 },
-  mapPlaceholder: {
-    height: 200,
-    backgroundColor: '#16213e',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#0f3460',
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
   },
-  mapPlaceholderText: {
-    color: '#555',
-    textAlign: 'center',
+  mapContainer: {
+    flex: 1.5,
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a3e',
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  listContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  header: {
     fontSize: 16,
+    fontWeight: 'bold',
+    color: '#a8dadc',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
   },
-  packetCard: {
+  card: {
     backgroundColor: '#16213e',
-    padding: 14,
-    borderRadius: 10,
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 10,
     borderLeftWidth: 3,
     borderLeftColor: '#e63946',
   },
-  packetHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  packetId: { color: '#00d4ff', fontSize: 14, fontWeight: '600' },
-  packetHops: { color: '#888', fontSize: 12 },
-  packetLocation: { color: '#a8dadc', fontSize: 13, marginBottom: 4 },
-  packetMessage: { color: '#fff', fontSize: 14, marginBottom: 4 },
-  packetTime: { color: '#666', fontSize: 11 },
-  emptyText: { color: '#888', textAlign: 'center', padding: 30 },
+  cardId: {
+    color: '#00d4ff',
+    fontWeight: 'bold',
+    fontFamily: process.env.NODE_ENV === 'test' ? 'sans-serif' : 'monospace',
+    fontSize: 12,
+  },
+  cardTime: {
+    color: '#666',
+    fontSize: 12,
+  },
+  cardMsg: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  cardMeta: {
+    color: '#888',
+    fontSize: 12,
+  },
+  emptyText: {
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 20,
+  },
 });
 
 export default MapScreen;

@@ -73,6 +73,19 @@ class RelayPacketUseCase {
       // Step 8: Store in local buffer
       await this.storagePort.savePacket(packet.toJSON());
 
+      // Step 8.5: Insert into PEER_LOG and RELAY_LOG
+      if (typeof this.storagePort.logPeer === 'function') {
+        await this.storagePort.logPeer(packet.senderDeviceId, -50);
+      }
+      if (typeof this.storagePort.logRelay === 'function') {
+        await this.storagePort.logRelay(
+          relayDeviceId,
+          packet.packetId,
+          'MESH_BROADCAST',
+          relayLocation,
+        );
+      }
+
       // Step 9: Re-broadcast to mesh (forward to other peers)
       if (this.transportPort.isRunning()) {
         await this.transportPort.sendPacket(packet.toJSON());

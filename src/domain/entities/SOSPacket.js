@@ -24,6 +24,7 @@ class SOSPacket {
     payload = {},
     relayChain = [],
     checksum = '',
+    nonce = generateUUID(), // Anti-replay nonce
     status = 'PENDING', // PENDING | FORWARDED | DELIVERED
   } = {}) {
     this.packetId = packetId;
@@ -39,6 +40,7 @@ class SOSPacket {
     this.payload = payload;
     this.relayChain = relayChain;
     this.checksum = checksum;
+    this.nonce = nonce;
     this.status = status;
   }
 
@@ -120,6 +122,7 @@ class SOSPacket {
       payload: this.payload,
       relayChain: this.relayChain,
       checksum: this.checksum,
+      nonce: this.nonce,
       status: this.status,
     };
   }

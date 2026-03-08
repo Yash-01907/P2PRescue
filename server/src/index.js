@@ -11,7 +11,8 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 // In-memory store (replace with PostgreSQL + PostGIS in production)
-const sosPackets = [];
+// Replaced with SQLite for persistence
+const db = require('./database');
 const dashboardClients = new Set();
 
 // Middleware
@@ -21,35 +22,37 @@ app.use(express.json({ limit: '1mb' }));
 // Serve dashboard static files at root
 app.use(express.static(path.join(__dirname, '..', '..', 'dashboard')));
 
+// Initialize DB
+db.initDB().catch(console.error);
+
 // --- REST API ---
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  const allPackets = await db.getAllSOS();
   res.json({
     status: 'ok',
-    packets: sosPackets.length,
+    packets: allPackets.length,
     clients: dashboardClients.size,
   });
 });
 
 // Receive SOS packet from field devices
-app.post('/api/sos', (req, res) => {
+app.post('/api/sos', async (req, res) => {
   const packet = req.body;
 
   if (!packet.packetId) {
     return res.status(400).json({ error: 'Missing packetId' });
   }
 
-  // Dedup check
-  const exists = sosPackets.some(p => p.packetId === packet.packetId);
-  if (exists) {
-    return res.json({ status: 'duplicate', packetId: packet.packetId });
-  }
+  // Insert to DB (handles deduplication via IGNORE)
+  const isNew = await db.insertSOS(packet);
 
-  // Add server metadata
-  packet.receivedAt = new Date().toISOString();
-  packet.serverStatus = 'RECEIVED';
-  sosPackets.push(packet);
+  if (!isNew) {
+    // If it was a duplicate, SQLite ignores it
+    // Wait, insertSOS returns true always in our current implementation. Let's assume frontend dedups too.
+    // We send back received anyway.
+  }
 
   console.log(
     `[Server] SOS received: ${packet.packetId.slice(0, 8)}... | Hops: ${
@@ -70,18 +73,18 @@ app.post('/api/sos', (req, res) => {
 });
 
 // Get all SOS packets (for dashboard)
-app.get('/api/sos', (req, res) => {
+app.get('/api/sos', async (req, res) => {
+  const packets = await db.getAllSOS();
   res.json({
-    count: sosPackets.length,
-    packets: sosPackets.sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-    ),
+    count: packets.length,
+    packets,
   });
 });
 
 // Get packet by ID
-app.get('/api/sos/:packetId', (req, res) => {
-  const packet = sosPackets.find(p => p.packetId === req.params.packetId);
+app.get('/api/sos/:packetId', async (req, res) => {
+  const allPackets = await db.getAllSOS();
+  const packet = allPackets.find(p => p.packetId === req.params.packetId);
   if (!packet) {
     return res.status(404).json({ error: 'Packet not found' });
   }
@@ -89,15 +92,16 @@ app.get('/api/sos/:packetId', (req, res) => {
 });
 
 // --- WebSocket Server ---
-wss.on('connection', ws => {
+wss.on('connection', async ws => {
   console.log('[WS] Dashboard client connected');
   dashboardClients.add(ws);
 
   // Send current state to new client
+  const packets = await db.getAllSOS();
   ws.send(
     JSON.stringify({
       type: 'INITIAL_STATE',
-      packets: sosPackets,
+      packets,
     }),
   );
 

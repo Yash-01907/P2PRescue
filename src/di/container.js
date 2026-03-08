@@ -2,7 +2,7 @@
 // Dependency Injection: Wire all adapters, use cases, and services together
 const BridgefyTransportAdapter = require('../adapters/transport/BridgefyTransportAdapter');
 const GPSLocationAdapter = require('../adapters/location/GPSLocationAdapter');
-const AsyncStorageAdapter = require('../adapters/storage/AsyncStorageAdapter');
+const SQLiteAdapter = require('../adapters/storage/SQLiteAdapter').default;
 const NetInfoConnectivityAdapter = require('../adapters/network/NetInfoConnectivityAdapter');
 const CryptoAdapter = require('../adapters/encryption/CryptoAdapter');
 
@@ -28,7 +28,7 @@ function createContainer() {
 
   // --- Adapters ---
   const transportAdapter = new BridgefyTransportAdapter();
-  const storageAdapter = new AsyncStorageAdapter();
+  const storageAdapter = new SQLiteAdapter();
   const locationAdapter = new GPSLocationAdapter(storageAdapter);
   const connectivityAdapter = new NetInfoConnectivityAdapter();
   const cryptoAdapter = new CryptoAdapter();
@@ -64,6 +64,7 @@ function createContainer() {
   const meshForegroundService = new MeshForegroundService(
     transportAdapter,
     locationAdapter,
+    storageAdapter,
   );
 
   const syncWorker = new SyncWorker(

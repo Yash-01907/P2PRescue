@@ -5,11 +5,13 @@
 const { AppState, Platform } = require('react-native');
 
 class MeshForegroundService {
-  constructor(transportAdapter, locationAdapter) {
+  constructor(transportAdapter, locationAdapter, storageAdapter) {
     this._transportAdapter = transportAdapter;
     this._locationAdapter = locationAdapter;
+    this._storageAdapter = storageAdapter; // Inject storage adapter for GC
     this._isActive = false;
     this._appStateSubscription = null;
+    this._gcInterval = null;
   }
 
   /**
@@ -61,6 +63,19 @@ class MeshForegroundService {
       await this._startMeshAndCaching();
       this._isActive = true;
 
+      // Start periodic Garbage Collection (Data Retention) every 1 hour
+      if (this._storageAdapter && this._storageAdapter.purgeStaleLogs) {
+        this._gcInterval = setInterval(() => {
+          console.log(
+            '[ForegroundService] Running periodic Log Garbage Collection...',
+          );
+          this._storageAdapter.purgeStaleLogs().catch(e => console.error(e));
+          this._storageAdapter
+            .deleteExpiredPackets()
+            .catch(e => console.error(e));
+        }, 3600000); // 1 hour
+      }
+
       // Monitor app state transitions
       this._appStateSubscription = AppState.addEventListener(
         'change',
@@ -87,6 +102,11 @@ class MeshForegroundService {
         } catch {
           /* dev mode */
         }
+      }
+
+      if (this._gcInterval) {
+        clearInterval(this._gcInterval);
+        this._gcInterval = null;
       }
 
       if (this._appStateSubscription) {

@@ -79,7 +79,7 @@ function App(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
       {/* Main Content */}
       <View style={styles.content}>{renderScreen()}</View>
@@ -109,7 +109,7 @@ function App(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a2e' },
+  container: { flex: 1, backgroundColor: '#000000' },
   content: { flex: 1 },
   tabBar: {
     flexDirection: 'row',

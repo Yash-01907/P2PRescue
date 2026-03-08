@@ -37,6 +37,11 @@ class StoragePort {
     throw new Error('StoragePort.purgeExpired() not implemented');
   }
 
+  /** Delete obsolete location caches, peer logs, and relay records based on Retention Policy */
+  async purgeStaleLogs() {
+    throw new Error('StoragePort.purgeStaleLogs() not implemented');
+  }
+
   /** Get count of packets by status */
   async getPacketCounts() {
     throw new Error('StoragePort.getPacketCounts() not implemented');
